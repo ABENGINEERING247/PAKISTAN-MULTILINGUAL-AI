@@ -16,7 +16,9 @@ if "mode" not in st.session_state:
 if "language" not in st.session_state:
     st.session_state.language = "Urdu"
 if "model" not in st.session_state:
-    st.session_state.model = env_default("OPENAI_MODEL", "gpt-4o-mini")
+    st.session_state.model = env_default("OPENAI_MODEL", "gpt-6-luna")
+if "temperature" not in st.session_state:
+    st.session_state.temperature = 1.0
 
 st.markdown("""
 <style>
@@ -32,7 +34,17 @@ with st.sidebar:
     st.title("🇵🇰 Assistant Settings")
     st.session_state.mode = st.radio("Operating mode", MODES, index=MODES.index(st.session_state.mode))
     st.session_state.language = st.selectbox("Response language", LANGUAGES, index=LANGUAGES.index(st.session_state.language))
-    st.session_state.model = st.text_input("Model name (API mode)", value=st.session_state.model)
+    
+    # Model selection including GPT-6 Luna
+    model_options = ["gpt-6-luna", "gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet"]
+    current_model = st.session_state.model
+    if current_model not in model_options:
+        model_options.append(current_model)
+    st.session_state.model = st.selectbox("Model name", model_options, index=model_options.index(current_model))
+    
+    # Temperature slider set to 1.0 default
+    st.session_state.temperature = st.slider("Temperature", min_value=0.0, max_value=2.0, value=st.session_state.temperature, step=0.1)
+    
     st.caption("API keys are read from environment variables / Streamlit Secrets. Never paste keys into chat.")
     st.divider()
     st.subheader("What I can help with")
@@ -41,6 +53,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
     st.divider()
+    st.markdown("**Developed & Designed by:**<br>Engr. Bilal Mehmood", unsafe_allow_html=True)
     st.caption("For important legal, medical, financial, or emergency matters, verify with qualified professionals or official sources.")
 
 st.markdown("""
@@ -56,7 +69,7 @@ with left:
     st.subheader("Your AI conversation")
 with right:
     st.metric("Mode", st.session_state.mode)
-    st.metric("Messages", len(st.session_state.messages))
+    st.metric("Model", st.session_state.model)
 
 if not st.session_state.messages:
     st.info("Start with a suggestion or write your question below.")
@@ -84,12 +97,22 @@ if user_prompt:
     with st.chat_message("assistant", avatar="🇵🇰"):
         with st.spinner("Preparing your answer…"):
             try:
-                answer, source_mode = get_response(
-                    messages=st.session_state.messages,
-                    mode=st.session_state.mode,
-                    language=st.session_state.language,
-                    model=st.session_state.model,
-                )
+                # Pass temperature if supported by assistant_core, with fallback
+                try:
+                    answer, source_mode = get_response(
+                        messages=st.session_state.messages,
+                        mode=st.session_state.mode,
+                        language=st.session_state.language,
+                        model=st.session_state.model,
+                        temperature=st.session_state.temperature,
+                    )
+                except TypeError:
+                    answer, source_mode = get_response(
+                        messages=st.session_state.messages,
+                        mode=st.session_state.mode,
+                        language=st.session_state.language,
+                        model=st.session_state.model,
+                    )
                 st.markdown(answer)
                 if source_mode == "Demo":
                     st.caption("Demo mode · Responses are illustrative and may be incomplete.")
@@ -97,4 +120,6 @@ if user_prompt:
             except Exception as exc:
                 st.error(f"Could not generate a response: {exc}")
                 st.info("Check your API key and model settings, or switch to Demo mode.")
-st.caption("Prototype foundation for a professional service. Add official-source retrieval, authentication, usage limits, and persistent storage before public commercial launch.")
+
+st.markdown("---")
+st.markdown("<div style='text-align: center; color: #64748b;'>Prototype foundation for a professional service. Developed and designed by <b>Engr. Bilal Mehmood</b>.</div>", unsafe_allow_html=True)
